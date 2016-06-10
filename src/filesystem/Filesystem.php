@@ -947,18 +947,22 @@ final class Filesystem extends Phobject {
    */
   public static function resolveBinary($binary) {
     if (phutil_is_windows()) {
-      list($err, $stdout) = exec_manual('where %s', $binary);
-      $stdout = phutil_split_lines($stdout);
+      if (substr(getenv('SHELL'), -4) === 'bash') {
+        list($err, $stdout) = exec_manual('which %s', $binary);
+      } else {
+        list($err, $stdout) = exec_manual('where %s', $binary);
+        $stdout = phutil_split_lines($stdout);
 
-      // If `where %s` could not find anything, check for relative binary
-      if ($err) {
-        $path = self::resolvePath($binary);
-        if (self::pathExists($path)) {
-          return $path;
+        // If `where %s` could not find anything, check for relative binary
+        if ($err) {
+          $path = self::resolvePath($binary);
+          if (self::pathExists($path)) {
+            return $path;
+          }
+          return null;
         }
-        return null;
+        $stdout = head($stdout);
       }
-      $stdout = head($stdout);
     } else {
       list($err, $stdout) = exec_manual('which %s', $binary);
     }

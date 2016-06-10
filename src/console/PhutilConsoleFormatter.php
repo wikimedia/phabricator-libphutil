@@ -29,7 +29,11 @@ final class PhutilConsoleFormatter extends Phobject {
       }
 
       if (phutil_is_windows() && $term !== 'cygwin' && $term !== 'ansi') {
-        self::$disableANSI = true;
+        if (substr(getenv('SHELL'), -4) === 'bash') {
+          self::$disableANSI = false;
+        } else {
+          self::$disableANSI = true;
+        }
       } else if (!defined('STDOUT')) {
         self::$disableANSI = true;
       } else if (function_exists('posix_isatty') && !posix_isatty(STDOUT)) {

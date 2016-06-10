@@ -10,7 +10,6 @@
 /support/xhpast/*.o
 /support/xhpast/parser.yacc.output
 /support/xhpast/node_names.hpp
-/support/xhpast/xhpast
 /support/xhpast/xhpast.exe
 /src/parser/xhpast/bin/xhpast
 
