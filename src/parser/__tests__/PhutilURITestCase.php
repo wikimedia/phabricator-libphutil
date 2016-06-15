@@ -151,6 +151,32 @@ final class PhutilURITestCase extends PhutilTestCase {
         'x' => '/',
       ),
       $uri->getQueryParams());
+
+    // This is not a legitimate URI and should not parse as one.
+    $uri = new PhutilURI('fruit.list: apple banana cherry');
+    $this->assertEqual('', $uri->getDomain());
+  }
+
+  public function testAmbiguousURIs() {
+    // It's important that this be detected as a Javascript URI, because that
+    // is how browsers will treat it.
+    $uri = new PhutilURI('javascript:evil');
+    $this->assertEqual('javascript', $uri->getProtocol());
+
+
+    // This is "wrong", in that the user probably intends for this to be a
+    // Git-style URI, but we can not easily parse it as one without making the
+    // "javascript" case above unsafe.
+    $uri = new PhutilURI('localhost:todo.txt');
+    $this->assertEqual('localhost', $uri->getProtocol());
+
+
+    // These variants are unambiguous and safe.
+    $uri = new PhutilURI('localhost.com:todo.txt');
+    $this->assertEqual('localhost.com', $uri->getDomain());
+
+    $uri = new PhutilURI('user@localhost:todo.txt');
+    $this->assertEqual('localhost', $uri->getDomain());
   }
 
   public function testAmbiguousURIs() {
