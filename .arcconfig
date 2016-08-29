@@ -1,3 +1,4 @@
 {
-  "phabricator.uri": "https://phabricator.wikimedia.org/"
+  "phabricator.uri": "https://phabricator.wikimedia.org/",
+  "history.immutable": false
 }
