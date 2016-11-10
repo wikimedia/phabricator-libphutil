@@ -28,12 +28,13 @@ final class PhutilICSParser extends Phobject {
   const PARSE_EMPTY_DATETIME = 'empty-datetime';
   const PARSE_MANY_DATETIME = 'many-datetime';
   const PARSE_BAD_DATETIME = 'bad-datetime';
-  const PARSE_BAD_TZID = 'bad-tzid';
   const PARSE_EMPTY_DURATION = 'empty-duration';
   const PARSE_MANY_DURATION = 'many-duration';
   const PARSE_BAD_DURATION = 'bad-duration';
 
   const WARN_TZID_UTC = 'warn-tzid-utc';
+  const WARN_TZID_GUESS = 'warn-tzid-guess';
+  const WARN_TZID_IGNORED = 'warn-tzid-ignored';
 
   public function parseICSData($data) {
     $this->stack = array();
@@ -572,6 +573,7 @@ final class PhutilICSParser extends Phobject {
             $buf .= $c;
             break;
         }
+        $esc = false;
       }
     }
 
@@ -616,6 +618,10 @@ final class PhutilICSParser extends Phobject {
     return $this;
   }
 
+  public function getWarnings() {
+    return $this->warnings;
+  }
+
   private function didParseEventProperty(
     PhutilCalendarEventNode $node,
     $name,
@@ -655,6 +661,18 @@ final class PhutilICSParser extends Phobject {
         $duration = $this->newDurationFromProperty($parameters, $value);
         $node->setDuration($duration);
         break;
+      case 'RRULE':
+        $rrule = $this->newRecurrenceRuleFromProperty($parameters, $value);
+        $node->setRecurrenceRule($rrule);
+        break;
+      case 'RECURRENCE-ID':
+        $text = $this->newTextFromProperty($parameters, $value);
+        $node->setRecurrenceID($text);
+        break;
+      case 'ATTENDEE':
+        $attendee = $this->newAttendeeFromProperty($parameters, $value);
+        $node->addAttendee($attendee);
+        break;
     }
 
   }
@@ -662,6 +680,30 @@ final class PhutilICSParser extends Phobject {
   private function newTextFromProperty(array $parameters, array $value) {
     $value = $value['value'];
     return implode("\n\n", $value);
+  }
+
+  private function newAttendeeFromProperty(array $parameters, array $value) {
+    $uri = $value['value'];
+
+    switch (idx($parameters, 'PARTSTAT')) {
+      case 'ACCEPTED':
+        $status = PhutilCalendarUserNode::STATUS_ACCEPTED;
+        break;
+      case 'DECLINED':
+        $status = PhutilCalendarUserNode::STATUS_DECLINED;
+        break;
+      case 'NEEDS-ACTION':
+      default:
+        $status = PhutilCalendarUserNode::STATUS_INVITED;
+        break;
+    }
+
+    $name = $this->getScalarParameterValue($parameters, 'CN');
+
+    return id(new PhutilCalendarUserNode())
+      ->setURI($uri)
+      ->setName($name)
+      ->setStatus($status);
   }
 
   private function newDateTimeFromProperty(array $parameters, array $value) {
@@ -699,15 +741,7 @@ final class PhutilICSParser extends Phobject {
       }
       $tzid = 'UTC';
     } else if ($tzid !== null) {
-      $map = DateTimeZone::listIdentifiers();
-      $map = array_fuse($map);
-      if (empty($map[$tzid])) {
-        $this->raiseParseFailure(
-          self::PARSE_BAD_TZID,
-          pht(
-            'Timezone "%s" is not a recognized timezone.',
-            $tzid));
-      }
+      $tzid = $this->guessTimezone($tzid);
     }
 
     try {
@@ -759,6 +793,10 @@ final class PhutilICSParser extends Phobject {
     return $duration;
   }
 
+  private function newRecurrenceRuleFromProperty(array $parameters, $value) {
+    return PhutilCalendarRecurrenceRule::newFromRRULE($value['value']);
+  }
+
   private function getScalarParameterValue(
     array $parameters,
     $name,
@@ -794,5 +832,67 @@ final class PhutilICSParser extends Phobject {
     return idx(head($value), 'value');
   }
 
+  private function guessTimezone($tzid) {
+    $map = DateTimeZone::listIdentifiers();
+    $map = array_fuse($map);
+    if (isset($map[$tzid])) {
+      // This is a real timezone we recognize, so just use it as provided.
+      return $tzid;
+    }
+
+    // Look for something that looks like "UTC+3" or "GMT -05.00". If we find
+    // anything
+    $offset_pattern =
+      '/'.
+      '(?:UTC|GMT)'.
+      '\s*'.
+      '(?P<sign>[+-])'.
+      '\s*'.
+      '(?P<h>\d+)'.
+      '(?:'.
+        '[:.](?P<m>\d+)'.
+      ')?'.
+      '/i';
+
+    $matches = null;
+    if (preg_match($offset_pattern, $tzid, $matches)) {
+      $hours = (int)$matches['h'];
+      $minutes = (int)idx($matches, 'm');
+      $offset = ($hours * 60 * 60) + ($minutes * 60);
+
+      if (idx($matches, 'sign') == '-') {
+        $offset = -$offset;
+      }
+
+      // NOTE: We could possibly do better than this, by using the event start
+      // time to guess a timezone. However, that won't work for recurring
+      // events and would require us to do this work after finishing initial
+      // parsing. Since these unusual offset-based timezones appear to be rare,
+      // the benefit may not be worth the complexity.
+      $now = new DateTime('@'.time());
+
+      foreach ($map as $identifier) {
+        $zone = new DateTimeZone($identifier);
+        if ($zone->getOffset($now) == $offset) {
+          $this->raiseWarning(
+            self::WARN_TZID_GUESS,
+            pht(
+              'TZID "%s" is unknown, guessing "%s" based on pattern "%s".',
+              $tzid,
+              $identifier,
+              $matches[0]));
+          return $identifier;
+        }
+      }
+    }
+
+    $this->raiseWarning(
+      self::WARN_TZID_IGNORED,
+      pht(
+        'TZID "%s" is unknown, using UTC instead.',
+        $tzid));
+
+    return 'UTC';
+  }
 
 }

@@ -1,7 +1,7 @@
 <?php
 
 final class PhutilCalendarEventNode
-  extends PhutilCalendarNode {
+  extends PhutilCalendarContainerNode {
 
   const NODETYPE = 'event';
 
@@ -75,7 +75,8 @@ final class PhutilCalendarEventNode
         ->setDuration($duration);
     }
 
-    return null;
+    // If no end date or duration are specified, the event is instantaneous.
+    return $start;
   }
 
   public function setDuration(PhutilCalendarDuration $duration) {
@@ -137,24 +138,6 @@ final class PhutilCalendarEventNode
 
   public function getRecurrenceRule() {
     return $this->recurrenceRule;
-  }
-
-  public function setRecurrenceUntilDateTime(PhutilCalendarDateTime $date) {
-    $this->recurrenceUntilDateTime = $date;
-    return $this;
-  }
-
-  public function getRecurrenceUntilDateTime() {
-    return $this->recurrenceUntilDateTime;
-  }
-
-  public function setRecurrenceCount($recurrence_count) {
-    $this->recurrenceCount = $recurrence_count;
-    return $this;
-  }
-
-  public function getRecurrenceCount() {
-    return $this->recurrenceCount;
   }
 
   public function setRecurrenceExceptions(array $recurrence_exceptions) {

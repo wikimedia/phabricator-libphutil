@@ -113,6 +113,16 @@ final class PhutilICSParserTestCase extends PhutilTestCase {
       $event->getEndDateTime()->getEpoch());
   }
 
+  public function testICSOddTimezone() {
+    $event = $this->parseICSSingleEvent('zimbra-timezone.ics');
+
+    $start = $event->getStartDateTime();
+
+    $this->assertEqual(
+      '20170303T140000Z',
+      $start->getISO8601());
+  }
+
   public function testICSFloatingTime() {
     // This tests "floating" event times, which have no absolute time and are
     // supposed to be interpreted using the viewer's timezone. It also uses
@@ -169,6 +179,20 @@ final class PhutilICSParserTestCase extends PhutilTestCase {
       $end->getEpoch());
   }
 
+  public function testICSVALARM() {
+    $event = $this->parseICSSingleEvent('valarm.ics');
+
+    // For now, we parse but ignore VALARM sections. This test just makes
+    // sure they survive parsing.
+
+    $start_epoch = strtotime('2016-10-19 22:00:00 UTC');
+    $this->assertEqual(1476914400, $start_epoch);
+
+    $this->assertEqual(
+      $start_epoch,
+      $event->getStartDateTime()->getEpoch());
+  }
+
   public function testICSDuration() {
     $event = $this->parseICSSingleEvent('duration.ics');
 
@@ -211,7 +235,6 @@ final class PhutilICSParserTestCase extends PhutilTestCase {
       'err-root-property.ics' => PhutilICSParser::PARSE_ROOT_PROPERTY,
       'err-unescaped-backslash.ics' =>
         PhutilICSParser::PARSE_UNESCAPED_BACKSLASH,
-      'err-unexpected-child.ics' => PhutilICSParser::PARSE_UNEXPECTED_CHILD,
       'err-unexpected-text.ics' => PhutilICSParser::PARSE_UNEXPECTED_TEXT,
       'err-multiple-parameters.ics' =>
         PhutilICSParser::PARSE_MULTIPLE_PARAMETERS,
@@ -221,8 +244,6 @@ final class PhutilICSParserTestCase extends PhutilTestCase {
         PhutilICSParser::PARSE_MANY_DATETIME,
       'err-bad-datetime.ics' =>
         PhutilICSParser::PARSE_BAD_DATETIME,
-      'err-bad-tzid.ics' =>
-        PhutilICSParser::PARSE_BAD_TZID,
       'err-empty-duration.ics' =>
         PhutilICSParser::PARSE_EMPTY_DURATION,
       'err-many-duration.ics' =>
