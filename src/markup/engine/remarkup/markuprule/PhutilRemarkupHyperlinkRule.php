@@ -35,15 +35,19 @@ final class PhutilRemarkupHyperlinkRule extends PhutilRemarkupRule {
     $protocols = $this->getEngine()->getConfig(
       'uri.allowed-protocols',
       array());
-
-    $protocol = id(new PhutilURI($matches[1]))->getProtocol();
-    if (!idx($protocols, $protocol)) {
-      // If this URI doesn't use a whitelisted protocol, don't link it. This
-      // is primarily intended to prevent javascript:// silliness.
-      return $this->getEngine()->storeText($matches[1]);
+    try {
+      // Only linkify valid urls that use one of the allowed protocols
+      // This is primarily intended to prevent javascript:// silliness.
+      $protocol = id(new PhutilURI($matches[1]))->getProtocol();
+      if (idx($protocols, $protocol)) {
+        // If this URI uses a whitelisted protocol, link it.
+        return $this->storeRenderedHyperlink($matches[1]);
+      }
+    } catch (Exception $e) {
+      // invalid urls might throw an exception
     }
-
-    return $this->storeRenderedHyperlink($matches[1]);
+    // If it's an invalid URL or not a whitelisted protocol, don't linkify it.
+    return $this->getEngine()->storeText($matches[1]);
   }
 
   protected function storeRenderedHyperlink($link) {
