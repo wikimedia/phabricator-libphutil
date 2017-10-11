@@ -32,22 +32,25 @@ final class PhutilRemarkupHyperlinkRule extends PhutilRemarkupRule {
   }
 
   protected function markupHyperlink(array $matches) {
+    try {
+      $uri = new PhutilURI($matches[1]);
+    } catch (Exception $ex) {
+      return $matches[0];
+    }
+
+    $protocol = $uri->getProtocol();
+
     $protocols = $this->getEngine()->getConfig(
       'uri.allowed-protocols',
       array());
-    try {
-      // Only linkify valid urls that use one of the allowed protocols
-      // This is primarily intended to prevent javascript:// silliness.
-      $protocol = id(new PhutilURI($matches[1]))->getProtocol();
-      if (idx($protocols, $protocol)) {
-        // If this URI uses a whitelisted protocol, link it.
-        return $this->storeRenderedHyperlink($matches[1]);
-      }
-    } catch (Exception $e) {
-      // invalid urls might throw an exception
+
+    if (!idx($protocols, $protocol)) {
+      // If this URI doesn't use a whitelisted protocol, don't link it. This
+      // is primarily intended to prevent javascript:// silliness.
+      return $this->getEngine()->storeText($matches[1]);
     }
-    // If it's an invalid URL or not a whitelisted protocol, don't linkify it.
-    return $this->getEngine()->storeText($matches[1]);
+
+    return $this->storeRenderedHyperlink($matches[1]);
   }
 
   protected function storeRenderedHyperlink($link) {
@@ -104,6 +107,12 @@ final class PhutilRemarkupHyperlinkRule extends PhutilRemarkupRule {
     if (preg_match('/\\)$/', $match) && !preg_match('/\\(/', $match)) {
       $tail = ')'.$tail;
       $match = substr($match, 0, -1);
+    }
+
+    try {
+      $uri = new PhutilURI($match);
+    } catch (Exception $ex) {
+      return $matches[0];
     }
 
     return hsprintf('%s%s', $this->markupHyperlink(array(null, $match)), $tail);
