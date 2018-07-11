@@ -394,7 +394,7 @@ final class PhutilErrorHandler extends Phobject {
         $default_message = sprintf(
           '[%s] PHLOG: %s at [%s:%d]',
           $timestamp,
-          PhutilReadableSerializer::printShort($value),
+          PhutilReadableSerializer::printShallow($value, 2, 100),
           $metadata['file'],
           $metadata['line']);
 
