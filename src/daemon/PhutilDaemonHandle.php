@@ -257,7 +257,7 @@ final class PhutilDaemonHandle extends Phobject {
   }
 
   public static function getWaitBeforeRestart() {
-    return 5;
+    return 2;
   }
 
   public static function getHeartbeatEventFrequency() {
