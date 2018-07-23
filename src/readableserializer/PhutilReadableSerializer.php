@@ -65,7 +65,7 @@ final class PhutilReadableSerializer extends Phobject {
       // NOTE: Avoid PhutilUTF8StringTruncator here since the data may not be
       // UTF8 anyway, it's slow for large inputs, and it might not be loaded
       // yet.
-      $limit = 1024;
+      $limit = 10000;
       $str = self::printableValue($value);
       if (strlen($str) > $limit) {
         if (is_string($value)) {

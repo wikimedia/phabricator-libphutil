@@ -56,7 +56,7 @@ final class CommandException extends Exception {
       return '(empty)';
     }
 
-    $limit = 1000;
+    $limit = 10000;
 
     $len = strlen($string);
     if ($len > $limit) {
