@@ -421,6 +421,13 @@ final class Filesystem extends Phobject {
       throw new Exception(pht('You must generate at least 1 byte of entropy.'));
     }
 
+    // Under PHP 7.2.0 and newer, we have a reasonable builtin. For older
+    // versions, we fall back to various sources which have a roughly similar
+    // effect.
+    if (function_exists('random_bytes')) {
+      return random_bytes($number_of_bytes);
+    }
+
     // Try to use `openssl_random_pseudo_bytes()` if it's available. This source
     // is the most widely available source, and works on Windows/Linux/OSX/etc.
 
@@ -524,6 +531,56 @@ final class Filesystem extends Phobject {
     $bytes = self::readRandomBytes($number_of_characters);
     for ($ii = 0; $ii < $number_of_characters; $ii++) {
       $result .= $map[ord($bytes[$ii]) >> 3];
+    }
+
+    return $result;
+  }
+
+
+  /**
+   * Generate a random integer value in a given range.
+   *
+   * This method uses less-entropic random sources under older versions of PHP.
+   *
+   * @param int Minimum value, inclusive.
+   * @param int Maximum value, inclusive.
+   */
+  public static function readRandomInteger($min, $max) {
+    if (!is_int($min)) {
+      throw new Exception(pht('Minimum value must be an integer.'));
+    }
+
+    if (!is_int($max)) {
+      throw new Exception(pht('Maximum value must be an integer.'));
+    }
+
+    if ($min > $max) {
+      throw new Exception(
+        pht(
+          'Minimum ("%d") must not be greater than maximum ("%d").',
+          $min,
+          $max));
+    }
+
+    // Under PHP 7.2.0 and newer, we can just use "random_int()". This function
+    // is intended to generate cryptographically usable entropy.
+    if (function_exists('random_int')) {
+      return random_int($min, $max);
+    }
+
+    // We could find a stronger source for this, but correctly converting raw
+    // bytes to an integer range without biases is fairly hard and it seems
+    // like we're more likely to get that wrong than suffer a PRNG prediction
+    // issue by falling back to "mt_rand()".
+
+    if (($max - $min) > mt_getrandmax()) {
+      throw new Exception(
+        pht('mt_rand() range is smaller than the requested range.'));
+    }
+
+    $result = mt_rand($min, $max);
+    if (!is_int($result)) {
+      throw new Exception(pht('Bad return value from mt_rand().'));
     }
 
     return $result;
@@ -777,22 +834,36 @@ final class Filesystem extends Phobject {
    * @return list<string>  List of parent paths, including the provided path.
    * @task   directory
    */
-  public static function walkToRoot($path, $root = '/') {
+  public static function walkToRoot($path, $root = null) {
     $path = self::resolvePath($path);
-    $root = self::resolvePath($root);
 
     if (is_link($path)) {
       $path = realpath($path);
     }
-    if (is_link($root)) {
-      $root = realpath($root);
-    }
 
-    // NOTE: We don't use `isDescendant()` here because we don't want to reject
-    // paths which don't exist on disk.
-    $root_list = new FileList(array($root));
-    if (!$root_list->contains($path)) {
-      return array();
+    // NOTE: On Windows, paths start like "C:\", so "/" does not contain
+    // every other path. We could possibly special case "/" to have the same
+    // meaning on Windows that it does on Linux, but just special case the
+    // common case for now. See PHI817.
+    if ($root !== null) {
+      $root = self::resolvePath($root);
+
+      if (is_link($root)) {
+        $root = realpath($root);
+      }
+
+      // NOTE: We don't use `isDescendant()` here because we don't want to
+      // reject paths which don't exist on disk.
+      $root_list = new FileList(array($root));
+      if (!$root_list->contains($path)) {
+        return array();
+      }
+    } else {
+      if (phutil_is_windows()) {
+        $root = null;
+      } else {
+        $root = '/';
+      }
     }
 
     $walk = array();
