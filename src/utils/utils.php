@@ -630,6 +630,38 @@ function assert_instances_of(array $arr, $class) {
 }
 
 /**
+ * Assert that two arrays have the exact same keys, in any order.
+ *
+ * @param map Array with expected keys.
+ * @param map Array with actual keys.
+ * @return void
+ */
+function assert_same_keys(array $expect, array $actual) {
+  foreach ($expect as $key => $value) {
+    if (isset($actual[$key]) || array_key_exists($key, $actual)) {
+      continue;
+    }
+
+    throw new InvalidArgumentException(
+      pht(
+        'Expected to find key "%s", but it is not present.',
+        $key));
+
+  }
+
+  foreach ($actual as $key => $value) {
+    if (isset($expect[$key]) || array_key_exists($key, $expect)) {
+      continue;
+    }
+
+    throw new InvalidArgumentException(
+      pht(
+        'Found unexpected surplus key "%s" where no such key was expected.',
+        $key));
+  }
+}
+
+/**
  * Assert that passed data can be converted to string.
  *
  * @param  string    Assert that this data is valid.
@@ -1476,7 +1508,7 @@ function phutil_var_export($var) {
     }
 
     // Don't show keys for non-associative arrays.
-    $show_keys = (array_keys($var) !== range(0, count($var) - 1));
+    $show_keys = !phutil_is_natural_list($var);
 
     $output = array();
     $output[] = 'array(';
@@ -1756,4 +1788,41 @@ function phutil_string_cast($value) {
   }
 
   return (string)$value;
+}
+
+
+/**
+ * Return a short, human-readable description of an object's type.
+ *
+ * This is mostly useful for raising errors like "expected x() to return a Y,
+ * but it returned a Z".
+ *
+ * This is similar to "get_type()", but describes objects and arrays in more
+ * detail.
+ *
+ * @param wild Anything.
+ * @return string Human-readable description of the value's type.
+ */
+function phutil_describe_type($value) {
+  return PhutilTypeSpec::getTypeOf($value);
+}
+
+
+/**
+ * Test if a list has the natural numbers (1, 2, 3, and so on) as keys, in
+ * order.
+ *
+ * @return bool True if the list is a natural list.
+ */
+function phutil_is_natural_list(array $list) {
+  $expect = 0;
+
+  foreach ($list as $key => $item) {
+    if ($key !== $expect) {
+      return false;
+    }
+    $expect++;
+  }
+
+  return true;
 }

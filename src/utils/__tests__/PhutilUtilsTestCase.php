@@ -231,6 +231,37 @@ final class PhutilUtilsTestCase extends PhutilTestCase {
       'InvalidArgumentException');
   }
 
+  public function testAssertSameKeys() {
+    $cases = array(
+      array(true, array(), array()),
+      array(true, array(0), array(1)),
+
+      array(false, array(0), array()),
+      array(false, array(), array(0)),
+
+      array(false, array('a' => 1), array('b' => 1)),
+
+      // Make sure "null" values survive "isset()" tests.
+      array(true, array('a' => 1), array('a' => null)),
+
+      // Key order should not matter.
+      array(true, array('a' => 1, 'b' => 1), array('b' => 1, 'a' => 1)),
+    );
+
+    foreach ($cases as $case) {
+      list($same_keys, $expect, $input) = $case;
+
+      $caught = null;
+      try {
+        assert_same_keys($expect, $input);
+      } catch (InvalidArgumentException $ex) {
+        $caught = $ex;
+      }
+
+      $this->assertEqual($same_keys, ($caught === null));
+    }
+  }
+
   public function testAssertStringLike() {
     $this->assertEqual(
       null,
@@ -917,5 +948,22 @@ final class PhutilUtilsTestCase extends PhutilTestCase {
         pht('HTTP querystring for byte "%s".', sprintf('0x%02x', $byte)));
     }
   }
+
+  public function testNaturalList() {
+    $cases = array(
+      array(true, array()),
+      array(true, array(0 => true, 1 => true, 2 => true)),
+      array(true, array('a', 'b', 'c')),
+      array(false, array(0 => true, 2 => true, 1 => true)),
+      array(false, array(1 => true)),
+      array(false, array('sound' => 'quack')),
+    );
+
+    foreach ($cases as $case) {
+      list($expect, $value) = $case;
+      $this->assertEqual($expect, phutil_is_natural_list($value));
+    }
+  }
+
 
 }
