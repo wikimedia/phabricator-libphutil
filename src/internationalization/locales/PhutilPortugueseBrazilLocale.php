@@ -9,6 +9,10 @@ final class PhutilPortugueseBrazilLocale extends PhutilLocale {
     return 'pt_BR';
   }
 
+  public function getFallbackLocaleCode() {
+    return 'pt_PT';
+  }
+
   public function getLocaleName() {
     return pht('Portuguese (Brazil)');
   }
